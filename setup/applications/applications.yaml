@@ -5,10 +5,10 @@ metadata:
   name: policy-dependency-demo-a
   namespace: openshift-gitops
 spec:
+  project: policy-dependency-demo
   destination:
     namespace: policiesa
     server: https://kubernetes.default.svc
-  project: default
   source:
     path: policiesa
     repoURL: https://github.com/ch-stark/policydependencydemo
@@ -26,10 +26,10 @@ metadata:
   name: policy-dependency-demo-b
   namespace: openshift-gitops
 spec:
+  project: policy-dependency-demo
   destination:
     namespace: policiesb
     server: https://kubernetes.default.svc
-  project: default
   source:
     path: policiesb
     repoURL: https://github.com/ch-stark/policydependencydemo

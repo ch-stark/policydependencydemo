@@ -76,34 +76,58 @@ flowchart TD
 | Multiple extraDependencies on one template | `demo-release` waits on three objects |
 | `ignorePending: true` | remediator and alert, so Pending is treated as Compliant when there is nothing to do |
 
-`policy-remediate-annotation` matches the certificate-refresh example in the RHACM blog: the enforce template stays Pending while the check is Compliant, `ignorePending: true` keeps the Policy Compliant, and `pruneObjectBehavior: DeleteAll` drops the remediating object when the template becomes inactive.
+`policy-remediate-annotation` matches the certificate-refresh example in the RHACM blog: the enforce template stays Pending while the check is Compliant, and `ignorePending: true` keeps the Policy Compliant when there is nothing to remediate. `pruneObjectBehavior` is `None` on that policy so it does not delete `dep-demo`. The alert notice uses `DeleteAll` so it is removed when the violation is gone.
 
 Leave `namespace` empty on ConfigurationPolicy extraDependencies. Those objects live in the managed cluster namespace. Set `namespace` on Policy dependencies (`policiesa` or `policiesb`).
 
-## Apply on the hub
+## Apply with OpenShift GitOps
 
-Policy Generator must be available (RHACM GitOps / OpenShift GitOps with the plugin, or `kustomize` with the [policy-generator-plugin](https://github.com/open-cluster-management-io/policy-generator-plugin)).
+You do **not** need two Argo CD instances. `policiesa` and `policiesb` are hub namespaces for the generated Policies. One cluster-scoped OpenShift GitOps instance (`openshift-gitops` in `openshift-gitops`) runs the Policy Generator plugin. Two **Applications** (not two Argo CD CRs) each read one path from this git repo.
 
-```bash
-# 1. Hub namespaces and ManagedClusterSetBindings (required for Placement)
-kubectl apply -k setup/
+That matches [policy-openshift-gitops-policygenerator.yaml](https://github.com/open-cluster-management-io/policy-collection/blob/main/community/CM-Configuration-Management/policy-openshift-gitops-policygenerator.yaml): patch the default `openshift-gitops` Argo CD CR, grant it Policy RBAC, then let Applications generate Policies.
 
-# 2. Generate and apply policies
-kubectl apply -k policiesa/
-kubectl apply -k policiesb/
-
-# Optional: OpenShift GitOps Applications instead of step 2
-# kubectl apply -f setup/03_applications.yaml
+```mermaid
+flowchart LR
+  git["github.com/ch-stark/policydependencydemo"]
+  argocd["Argo CD openshift-gitops<br/>Policy Generator plugin"]
+  appA["Application<br/>path: policiesa"]
+  appB["Application<br/>path: policiesb"]
+  nsA["Policies in policiesa"]
+  nsB["Policies in policiesb"]
+  git --> appA --> argocd --> nsA
+  git --> appB --> argocd --> nsB
 ```
 
-To preview generated Policies without applying:
+```bash
+# 1. Hub namespaces, ManagedClusterSetBindings, and GitOps bootstrap Policies
+#    (operator Subscription + Policy Generator on the default Argo CD instance).
+#    Those Policies are bound only to local-cluster.
+kubectl apply -k setup/
+
+# 2. Wait until both GitOps Policies are Compliant on local-cluster
+kubectl get policy -n open-cluster-management-global-set
+oc -n openshift-gitops get pods -l app.kubernetes.io/name=openshift-gitops-repo-server
+
+# 3. Applications that generate Policies from this git repo
+kubectl apply -k setup/applications/
+```
+
+`setup/gitops/policy-openshift-gitops-policygenerator.yaml` waits for `openshift-gitops-operator` to be **Compliant**, then enforces:
+
+- Policy Generator init container on `ArgoCD/openshift-gitops` (binary from the hub `acm-cli-downloads` image)
+- `kustomizeBuildOptions: --enable-alpha-plugins`
+- ClusterRole/Binding so the `openshift-gitops-argocd-application-controller` service account can create Policies, PolicySets, Placements, and PlacementBindings
+
+After sync, Governance should show 10 Policies (5 in `policiesa`, 5 in `policiesb`).
+
+To preview generated Policies without GitOps:
 
 ```bash
 kustomize build --enable-alpha-plugins --enable-exec policiesa/
 kustomize build --enable-alpha-plugins --enable-exec policiesb/
 ```
 
-Install the [Policy Generator plugin](https://github.com/open-cluster-management-io/policy-generator-plugin) under `~/.config/kustomize/plugin/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator` (or set `KUSTOMIZE_PLUGIN_HOME`). OpenShift GitOps on an RHACM hub already includes the plugin.
+Install the [Policy Generator plugin](https://github.com/open-cluster-management-io/policy-generator-plugin) under `~/.config/kustomize/plugin/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator` (or set `KUSTOMIZE_PLUGIN_HOME`) if you apply with `kubectl -k` instead of Argo CD.
 
 ## Placement
 
@@ -123,11 +147,11 @@ placement:
 ## Layout
 
 ```
-setup/                 # hub Namespaces, ManagedClusterSetBindings, optional Argo CD Applications
-policiesa/             # PolicyGenerator → 5 Policies in namespace policiesa
-  policyGenerator.yaml
-  input/
-policiesb/             # PolicyGenerator → 5 Policies in namespace policiesb
-  policyGenerator.yaml
-  input/
+setup/
+  01_namespaces.yaml              # policiesa, policiesb
+  02_managedclustersetbinding.yaml
+  gitops/                         # ACM Policies that configure OpenShift GitOps on local-cluster
+  applications/                   # Argo CD AppProject + 2 Applications
+policiesa/                        # PolicyGenerator → 5 Policies in namespace policiesa
+policiesb/                        # PolicyGenerator → 5 Policies in namespace policiesb
 ```

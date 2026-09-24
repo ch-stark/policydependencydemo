@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: policy-dependency-demo
+  namespace: openshift-gitops
+spec:
+  description: Generate ACM Policies from github.com/ch-stark/policydependencydemo
+  sourceRepos:
+    - https://github.com/ch-stark/policydependencydemo
+    - https://github.com/ch-stark/policydependencydemo.git
+  destinations:
+    - namespace: policiesa
+      server: https://kubernetes.default.svc
+    - namespace: policiesb
+      server: https://kubernetes.default.svc
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
