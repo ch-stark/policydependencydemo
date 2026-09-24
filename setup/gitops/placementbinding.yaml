@@ -11,6 +11,6 @@ subjects:
   - name: openshift-gitops-operator
     apiGroup: policy.open-cluster-management.io
     kind: Policy
-  - name: openshift-gitops-policygenerator
+  - name: openshift-gitops-policygen
     apiGroup: policy.open-cluster-management.io
     kind: Policy

@@ -1,7 +1,7 @@
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
-  name: openshift-gitops-policygenerator
+  name: openshift-gitops-policygen
   namespace: open-cluster-management-global-set
   annotations:
     policy.open-cluster-management.io/standards: NIST SP 800-53

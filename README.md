@@ -106,6 +106,7 @@ kubectl apply -k setup/
 
 # 2. Wait until both GitOps Policies are Compliant on local-cluster
 kubectl get policy -n open-cluster-management-global-set
+# Expected: openshift-gitops-operator, openshift-gitops-policygen
 oc -n openshift-gitops get pods -l app.kubernetes.io/name=openshift-gitops-repo-server
 
 # 3. Applications that generate Policies from this git repo
