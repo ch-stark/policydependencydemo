@@ -1,0 +1,100 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: policy-dependency-demo-a
+placementBindingDefaults:
+  name: policiesa-placement-binding
+policyDefaults:
+  namespace: policiesa
+  consolidateManifests: false
+  remediationAction: enforce
+  severity: medium
+  ignorePending: false
+  pruneObjectBehavior: DeleteIfCreated
+  categories:
+    - CM Configuration Management
+  controls:
+    - CM-2 Baseline Configuration
+  standards:
+    - NIST SP 800-53
+  policySets:
+    - policiesa-set
+  placement:
+    name: placement-policiesa
+policySets:
+  - name: policiesa-set
+    description: Ordered apply chain in policiesa. Policies wait for Compliant dependencies before creating resources.
+    placement:
+      name: placement-policiesa
+policies:
+  # 1/10 — no dependencies. Creates the managed-cluster namespace used by later policies.
+  - name: policy-demo-namespace
+    description: Creates the dep-demo namespace on managed clusters. Later policies depend on this being Compliant.
+    manifests:
+      - path: input/namespace
+        name: demo-namespace
+
+  # 2/10 — Policy dependency on Compliant.
+  - name: policy-demo-baseline
+    description: Applies baseline config after the dep-demo namespace policy is Compliant.
+    dependencies:
+      - name: policy-demo-namespace
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/baseline
+        name: demo-baseline
+
+  # 3/10 — Policy dependency on Compliant (parallel with baseline).
+  - name: policy-demo-rbac
+    description: Creates a ServiceAccount after the dep-demo namespace policy is Compliant.
+    dependencies:
+      - name: policy-demo-namespace
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/rbac
+        name: demo-rbac
+
+  # 4/10 — Policy dependencies plus extraDependencies between templates.
+  - name: policy-demo-stack
+    description: Applies app-config, then app-secret, then app-ready using extraDependencies so templates run in order.
+    dependencies:
+      - name: policy-demo-baseline
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+      - name: policy-demo-rbac
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/stack/app-config.yaml
+        name: demo-app-config
+      - path: input/stack/app-secret.yaml
+        name: demo-app-secret
+        extraDependencies:
+          - name: demo-app-config
+            kind: ConfigurationPolicy
+            compliance: Compliant
+      - path: input/stack/app-ready.yaml
+        name: demo-app-ready
+        extraDependencies:
+          - name: demo-app-secret
+            kind: ConfigurationPolicy
+            compliance: Compliant
+
+  # 5/10 — Inform health check after the stack is Compliant.
+  - name: policy-demo-health
+    description: Informs when demo-app-ready exists. Waits until policy-demo-stack is Compliant.
+    remediationAction: inform
+    dependencies:
+      - name: policy-demo-stack
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/health
+        name: demo-health

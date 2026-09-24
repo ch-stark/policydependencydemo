@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-release-precheck
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: release-precheck
+data:
+  stage: release-precheck
+  message: First template in policy-gated-release. The release ConfigMap waits on this ConfigurationPolicy.

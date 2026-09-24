@@ -1,0 +1,42 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: policy-dependency-demo-a
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: policiesa
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: policiesa
+    repoURL: https://github.com/ch-stark/policydependencydemo
+    targetRevision: HEAD
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      selfHeal: false
+      prune: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: policy-dependency-demo-b
+  namespace: openshift-gitops
+spec:
+  destination:
+    namespace: policiesb
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    path: policiesb
+    repoURL: https://github.com/ch-stark/policydependencydemo
+    targetRevision: HEAD
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      selfHeal: false
+      prune: true

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dep-demo
+  annotations:
+    demo.example.com/approved: "true"
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/remediated: "true"

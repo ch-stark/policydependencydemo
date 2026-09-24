@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-followup
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: followup
+data:
+  stage: followup
+  message: Created only after policiesa/policy-demo-health is Compliant on the cluster.

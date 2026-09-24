@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 01_namespaces.yaml
+  - 02_managedclustersetbinding.yaml
+  # Optional OpenShift GitOps Applications:
+  # kubectl apply -f 03_applications.yaml

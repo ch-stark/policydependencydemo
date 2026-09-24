@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-release
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: release
+data:
+  stage: release
+  message: extraDependencies require demo-release-precheck Compliant, policiesa/policy-demo-stack Compliant, and policiesb/policy-followup-compliant Compliant.

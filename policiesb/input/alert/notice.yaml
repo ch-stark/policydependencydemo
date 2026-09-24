@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-violation-notice
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: alert
+data:
+  stage: alert
+  message: Created while policy-required-annotation is NonCompliant. Removed when that policy is no longer NonCompliant.

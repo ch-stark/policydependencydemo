@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-baseline
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: baseline
+data:
+  stage: baseline
+  message: Baseline config applied after the dep-demo namespace exists.

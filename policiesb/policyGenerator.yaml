@@ -1,0 +1,101 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: PolicyGenerator
+metadata:
+  name: policy-dependency-demo-b
+placementBindingDefaults:
+  name: policiesb-placement-binding
+policyDefaults:
+  namespace: policiesb
+  consolidateManifests: false
+  remediationAction: enforce
+  severity: medium
+  ignorePending: false
+  pruneObjectBehavior: DeleteIfCreated
+  categories:
+    - CM Configuration Management
+  controls:
+    - CM-2 Baseline Configuration
+  standards:
+    - NIST SP 800-53
+  policySets:
+    - policiesb-set
+  placement:
+    name: placement-policiesb
+policySets:
+  - name: policiesb-set
+    description: Cross-namespace and NonCompliant dependency examples in policiesb.
+    placement:
+      name: placement-policiesb
+policies:
+  # 6/10 — Cross-namespace Policy dependency on Compliant.
+  - name: policy-required-annotation
+    description: Informs when dep-demo is missing demo.example.com/approved=true. Waits for policiesa/policy-demo-namespace Compliant.
+    remediationAction: inform
+    dependencies:
+      - name: policy-demo-namespace
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/required-annotation
+        name: demo-required-annotation
+
+  # 7/10 — extraDependencies on NonCompliant, ignorePending like the cert-refresh example.
+  - name: policy-remediate-annotation
+    description: Enforces the approved annotation only while the required-annotation ConfigurationPolicy is NonCompliant.
+    ignorePending: true
+    pruneObjectBehavior: None
+    manifests:
+      - path: input/remediate-annotation
+        name: demo-remediate-ns-annotation
+        extraDependencies:
+          - name: demo-required-annotation
+            kind: ConfigurationPolicy
+            compliance: NonCompliant
+
+  # 8/10 — Cross-namespace Policy dependency on Compliant.
+  - name: policy-followup-compliant
+    description: Creates a follow-up ConfigMap after policiesa/policy-demo-health is Compliant.
+    dependencies:
+      - name: policy-demo-health
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/followup
+        name: demo-followup
+
+  # 9/10 — Policy dependency on NonCompliant, ignorePending so Pending is treated as Compliant.
+  - name: policy-alert-on-violation
+    description: Creates a violation notice ConfigMap while policy-required-annotation is NonCompliant.
+    ignorePending: true
+    pruneObjectBehavior: DeleteAll
+    dependencies:
+      - name: policy-required-annotation
+        namespace: policiesb
+        kind: Policy
+        compliance: NonCompliant
+    manifests:
+      - path: input/alert
+        name: demo-violation-notice
+
+  # 10/10 — extraDependencies with multiple objects, including a cross-namespace Policy.
+  - name: policy-gated-release
+    description: Releases a ConfigMap only after local precheck, policiesa/policy-demo-stack, and policy-followup-compliant are Compliant.
+    manifests:
+      - path: input/gated-release/precheck.yaml
+        name: demo-release-precheck
+      - path: input/gated-release/release.yaml
+        name: demo-release
+        extraDependencies:
+          - name: demo-release-precheck
+            kind: ConfigurationPolicy
+            compliance: Compliant
+          - name: policy-demo-stack
+            namespace: policiesa
+            kind: Policy
+            compliance: Compliant
+          - name: policy-followup-compliant
+            namespace: policiesb
+            kind: Policy
+            compliance: Compliant
