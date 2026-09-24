@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-extra-missing
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: unresolved
+data:
+  stage: extra-missing
+  message: Inform check that stays NonCompliant so extraDependencies never resolve.

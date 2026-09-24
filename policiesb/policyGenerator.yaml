@@ -26,6 +26,10 @@ policySets:
     description: Cross-namespace and NonCompliant dependency examples in policiesb.
     placement:
       name: placement-policiesb
+  - name: policiesb-unresolved
+    description: Intentionally Pending policies whose dependencies never resolve.
+    placement:
+      name: placement-policiesb-unresolved
 policies:
   # 6/10 — Cross-namespace Policy dependency on Compliant.
   - name: policy-required-annotation
@@ -99,3 +103,31 @@ policies:
             namespace: policiesb
             kind: Policy
             compliance: Compliant
+
+  # Dependency object does not exist, so the dependency never resolves.
+  - name: policy-wait-missing
+    description: Stays Pending. Depends on policiesa/policy-does-not-exist, which is never created.
+    policySets:
+      - policiesb-unresolved
+    dependencies:
+      - name: policy-does-not-exist
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/unresolved/wait-missing.yaml
+        name: demo-wait-missing
+
+  # Dependency asks for NonCompliant, but the target policy is Compliant.
+  - name: policy-wait-wrong-state
+    description: Stays Pending. Waits for policiesa/policy-demo-namespace to be NonCompliant.
+    policySets:
+      - policiesb-unresolved
+    dependencies:
+      - name: policy-demo-namespace
+        namespace: policiesa
+        kind: Policy
+        compliance: NonCompliant
+    manifests:
+      - path: input/unresolved/wait-wrong-state.yaml
+        name: demo-wait-wrong-state

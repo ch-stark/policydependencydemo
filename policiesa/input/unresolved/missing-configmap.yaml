@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-never-created
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: unresolved
+data:
+  stage: missing
+  message: This ConfigMap is never created. The inform policy stays NonCompliant.

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-extra-follow
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: unresolved
+data:
+  stage: extra-follow
+  message: extraDependencies require demo-extra-missing ConfigurationPolicy Compliant.

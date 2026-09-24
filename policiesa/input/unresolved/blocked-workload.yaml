@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-blocked
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: unresolved
+data:
+  stage: blocked
+  message: Never applied. policy-stuck-pending waits for policy-missing-config to be Compliant.

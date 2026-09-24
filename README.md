@@ -1,6 +1,6 @@
 # ACM Policy Dependency Demo
 
-PolicyGenerator demo for Red Hat Advanced Cluster Management (RHACM) policy dependencies. Ten policies are generated into two hub namespaces (`policiesa` and `policiesb`). Some wait for **Compliant**, some wait for **NonCompliant**, and several use **extraDependencies** on individual policy templates.
+PolicyGenerator demo for Red Hat Advanced Cluster Management (RHACM) policy dependencies. Policies are generated into two hub namespaces (`policiesa` and `policiesb`). Some wait for **Compliant**, some for **NonCompliant**, and several use **extraDependencies**. A second PolicySet in each namespace stays **NonCompliant** or **Pending** on purpose so unresolved dependencies are visible.
 
 This follows the patterns in:
 
@@ -12,20 +12,25 @@ Policy Generator cannot override `policyDefaults.namespace` per policy, so this 
 
 ## What you should see
 
-On each managed cluster the policies create objects in namespace `dep-demo`. Unsatisfied dependencies show as **Pending** in Governance until the target compliance state is reached.
+On each managed cluster the happy-path policies create objects in namespace `dep-demo`. Unsatisfied dependencies show as **Pending**. The `*-unresolved` PolicySets stay NonCompliant or Pending.
 
-| Hub namespace | Policy | Activates when |
-|---------------|--------|----------------|
-| `policiesa` | `policy-demo-namespace` | Immediately |
-| `policiesa` | `policy-demo-baseline` | `policy-demo-namespace` is **Compliant** |
-| `policiesa` | `policy-demo-rbac` | `policy-demo-namespace` is **Compliant** |
-| `policiesa` | `policy-demo-stack` | Baseline and RBAC are **Compliant**, then templates run in order via extraDependencies |
-| `policiesa` | `policy-demo-health` | `policy-demo-stack` is **Compliant** |
-| `policiesb` | `policy-required-annotation` | `policiesa/policy-demo-namespace` is **Compliant** |
-| `policiesb` | `policy-remediate-annotation` | ConfigurationPolicy `demo-required-annotation` is **NonCompliant** |
-| `policiesb` | `policy-followup-compliant` | `policiesa/policy-demo-health` is **Compliant** |
-| `policiesb` | `policy-alert-on-violation` | `policy-required-annotation` is **NonCompliant** |
-| `policiesb` | `policy-gated-release` | extraDependencies: local precheck **Compliant**, `policiesa/policy-demo-stack` **Compliant**, and `policy-followup-compliant` **Compliant** |
+| Hub namespace | Policy | Expected | Activates when |
+|---------------|--------|----------|----------------|
+| `policiesa` | `policy-demo-namespace` | Compliant | Immediately |
+| `policiesa` | `policy-demo-baseline` | Compliant | `policy-demo-namespace` is **Compliant** |
+| `policiesa` | `policy-demo-rbac` | Compliant | `policy-demo-namespace` is **Compliant** |
+| `policiesa` | `policy-demo-stack` | Compliant | Baseline and RBAC are **Compliant**, then templates run in order via extraDependencies |
+| `policiesa` | `policy-demo-health` | Compliant | `policy-demo-stack` is **Compliant** |
+| `policiesa` | `policy-missing-config` | **NonCompliant** | Namespace exists, then informs for ConfigMap `demo-never-created` which is never created |
+| `policiesa` | `policy-stuck-pending` | **Pending** | Waits for `policy-missing-config` **Compliant** (never happens) |
+| `policiesa` | `policy-extra-unresolved` | **Pending** | extraDependencies wait for `demo-extra-missing` **Compliant** (that template stays NonCompliant) |
+| `policiesb` | `policy-required-annotation` | Compliant after remediator | `policiesa/policy-demo-namespace` is **Compliant** |
+| `policiesb` | `policy-remediate-annotation` | Compliant (`ignorePending`) | ConfigurationPolicy `demo-required-annotation` is **NonCompliant** |
+| `policiesb` | `policy-followup-compliant` | Compliant | `policiesa/policy-demo-health` is **Compliant** |
+| `policiesb` | `policy-alert-on-violation` | Compliant (`ignorePending`) | `policy-required-annotation` is **NonCompliant** |
+| `policiesb` | `policy-gated-release` | Compliant | extraDependencies: local precheck **Compliant**, `policiesa/policy-demo-stack` **Compliant**, and `policy-followup-compliant` **Compliant** |
+| `policiesb` | `policy-wait-missing` | **Pending** | Waits for `policiesa/policy-does-not-exist` **Compliant** (object never exists) |
+| `policiesb` | `policy-wait-wrong-state` | **Pending** | Waits for `policiesa/policy-demo-namespace` **NonCompliant** (that policy is Compliant) |
 
 ```mermaid
 flowchart TD
@@ -35,6 +40,9 @@ flowchart TD
     rbac[policy-demo-rbac]
     stack[policy-demo-stack]
     health[policy-demo-health]
+    missing[policy-missing-config]
+    stuck[policy-stuck-pending]
+    extra[policy-extra-unresolved]
     ns -->|Compliant| base
     ns -->|Compliant| rbac
     base -->|Compliant| stack
@@ -43,6 +51,10 @@ flowchart TD
     secret -->|extraDep Compliant| ready[demo-app-ready]
     stack --> cfg
     stack -->|Compliant| health
+    ns -->|Compliant| missing
+    missing -->|Compliant never| stuck
+    extraCheck[demo-extra-missing NonCompliant] -->|extraDep Compliant never| extraFollow[demo-extra-follow]
+    extra --> extraCheck
   end
 
   subgraph policiesb["policiesb"]
@@ -51,6 +63,8 @@ flowchart TD
     follow[policy-followup-compliant]
     alert[policy-alert-on-violation]
     gated[policy-gated-release]
+    waitMissing[policy-wait-missing]
+    waitWrong[policy-wait-wrong-state]
     ns -->|Compliant| check
     check -->|NonCompliant extraDep| rem
     check -->|NonCompliant| alert
@@ -59,6 +73,8 @@ flowchart TD
     stack -->|extraDep Compliant| rel
     follow -->|extraDep Compliant| rel
     gated --> pre
+    missingPolicy[policy-does-not-exist] -->|Compliant never| waitMissing
+    ns -->|NonCompliant never| waitWrong
   end
 ```
 
@@ -68,13 +84,14 @@ flowchart TD
 
 | Pattern | Where |
 |---------|--------|
-| Policy `dependencies` + `Compliant` | baseline, rbac, stack, health, required-annotation, followup |
-| Policy `dependencies` + `NonCompliant` | `policy-alert-on-violation` |
-| Template `extraDependencies` + `Compliant` | `policy-demo-stack`, `policy-gated-release` |
+| Policy `dependencies` + `Compliant` | baseline, rbac, stack, health, required-annotation, followup, missing-config, stuck-pending, wait-missing |
+| Policy `dependencies` + `NonCompliant` | `policy-alert-on-violation`, `policy-wait-wrong-state` |
+| Template `extraDependencies` + `Compliant` | `policy-demo-stack`, `policy-gated-release`, `policy-extra-unresolved` |
 | Template `extraDependencies` + `NonCompliant` | `policy-remediate-annotation` |
 | Cross-namespace Policy dependency | policiesb → policiesa (`namespace: policiesa`) |
 | Multiple extraDependencies on one template | `demo-release` waits on three objects |
 | `ignorePending: true` | remediator and alert, so Pending is treated as Compliant when there is nothing to do |
+| Unresolved on purpose | `policy-missing-config` NonCompliant; `policy-stuck-pending`, `policy-extra-unresolved`, `policy-wait-missing`, `policy-wait-wrong-state` Pending |
 
 `policy-remediate-annotation` matches the certificate-refresh example in the RHACM blog: the enforce template stays Pending while the check is Compliant, and `ignorePending: true` keeps the Policy Compliant when there is nothing to remediate. `pruneObjectBehavior` is `None` on that policy so it does not delete `dep-demo`. The alert notice uses `DeleteAll` so it is removed when the violation is gone.
 
@@ -119,7 +136,7 @@ kubectl apply -k setup/applications/
 - `kustomizeBuildOptions: --enable-alpha-plugins`
 - ClusterRole/Binding so the `openshift-gitops-argocd-application-controller` service account can create Policies, PolicySets, Placements, and PlacementBindings
 
-After sync, Governance should show 10 Policies (5 in `policiesa`, 5 in `policiesb`).
+After sync, Governance should show the happy-path PolicySets as Compliant and `policiesa-unresolved` / `policiesb-unresolved` as NonCompliant or Pending.
 
 To preview generated Policies without GitOps:
 

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-wait-missing
+  namespace: dep-demo
+  labels:
+    demo.example.com/part-of: policy-dependency-demo
+    demo.example.com/stage: unresolved
+data:
+  stage: wait-missing
+  message: Never applied. Depends on policiesa/policy-does-not-exist which is never created.

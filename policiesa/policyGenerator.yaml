@@ -26,6 +26,10 @@ policySets:
     description: Ordered apply chain in policiesa. Policies wait for Compliant dependencies before creating resources.
     placement:
       name: placement-policiesa
+  - name: policiesa-unresolved
+    description: Intentionally NonCompliant and Pending policies so unresolved dependencies are visible.
+    placement:
+      name: placement-policiesa-unresolved
 policies:
   # 1/10 — no dependencies. Creates the managed-cluster namespace used by later policies.
   - name: policy-demo-namespace
@@ -98,3 +102,48 @@ policies:
     manifests:
       - path: input/health
         name: demo-health
+
+  # Inform check that stays NonCompliant. No other policy creates demo-never-created.
+  - name: policy-missing-config
+    description: Stays NonCompliant. Informs for ConfigMap demo-never-created, which is never created.
+    remediationAction: inform
+    policySets:
+      - policiesa-unresolved
+    dependencies:
+      - name: policy-demo-namespace
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/unresolved/missing-configmap.yaml
+        name: demo-missing-config
+
+  # Policy-level dependency never resolves because the target stays NonCompliant.
+  - name: policy-stuck-pending
+    description: Stays Pending. Waits for policy-missing-config to be Compliant, which never happens.
+    policySets:
+      - policiesa-unresolved
+    dependencies:
+      - name: policy-missing-config
+        namespace: policiesa
+        kind: Policy
+        compliance: Compliant
+    manifests:
+      - path: input/unresolved/blocked-workload.yaml
+        name: demo-blocked
+
+  # extraDependencies never resolve because the first template stays NonCompliant.
+  - name: policy-extra-unresolved
+    description: Stays Pending. extraDependencies wait for demo-extra-missing to be Compliant.
+    policySets:
+      - policiesa-unresolved
+    manifests:
+      - path: input/unresolved/extra-check.yaml
+        name: demo-extra-missing
+        remediationAction: inform
+      - path: input/unresolved/extra-follow.yaml
+        name: demo-extra-follow
+        extraDependencies:
+          - name: demo-extra-missing
+            kind: ConfigurationPolicy
+            compliance: Compliant
